@@ -1,5 +1,4 @@
 const https = require('https');
-const http = require('http');
 
 const API_KEY = process.env.GOOGLE_PLACES_API_KEY || '';
 
@@ -22,12 +21,18 @@ module.exports = async (req, res) => {
   params.set('key', API_KEY);
 
   let googleUrl;
+  // /api/places/nearbysearch/json  → maps.googleapis.com/maps/api/place/nearbysearch/json
+  // /api/places/textsearch/json    → maps.googleapis.com/maps/api/place/textsearch/json
+  // /api/places/autocomplete/json  → maps.googleapis.com/maps/api/place/autocomplete/json
+  // /api/places/details/json       → maps.googleapis.com/maps/api/place/details/json
+  // /api/geocode/json              → maps.googleapis.com/maps/api/geocode/json
   if (pathStr.startsWith('places/')) {
-    googleUrl = `https://maps.googleapis.com/maps/api/${pathStr}?${params}`;
+    const sub = pathStr.replace('places/', '');
+    googleUrl = `https://maps.googleapis.com/maps/api/place/${sub}?${params}`;
   } else if (pathStr.startsWith('geocode/')) {
     googleUrl = `https://maps.googleapis.com/maps/api/${pathStr}?${params}`;
   } else {
-    res.status(404).json({ error: 'Unknown path' });
+    res.status(404).json({ error: 'Unknown path: ' + pathStr });
     return;
   }
 
