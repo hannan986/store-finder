@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as Location from 'expo-location';
 
-import { PROXY_GEOCODE as GEOCODE_URL } from '../constants/api';
+import { buildProxyUrl } from '../constants/api';
 
 export default function useLocation() {
   const [location, setLocation] = useState(null);
@@ -46,7 +46,7 @@ export default function useLocation() {
   async function selectPlace(placeId, description) {
     setLoading(true);
     try {
-      const url = `${GEOCODE_URL}?place_id=${encodeURIComponent(placeId)}`;
+      const url = buildProxyUrl('geocode/json', { place_id: placeId });
       const res = await fetch(url);
       const data = await res.json();
       if (data.status === 'OK' && data.results?.length > 0) {

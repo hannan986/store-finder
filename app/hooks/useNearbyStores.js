@@ -3,10 +3,8 @@ import Constants from 'expo-constants';
 import { CATEGORIES } from '../constants/categories';
 
 // Proxy handles the API key server-side; no key needed from the client on web.
-import { PROXY_PLACES } from '../constants/api';
+import { buildProxyUrl } from '../constants/api';
 const API_KEY = Constants.expoConfig?.extra?.googlePlacesApiKey || '';
-const PROXY_URL = PROXY_PLACES;
-const DIRECT_URL = 'https://maps.googleapis.com/maps/api/place';
 
 // Mock data shown when API key is not configured
 const MOCK_STORES = [
@@ -98,19 +96,23 @@ const MOCK_STORES = [
 
 async function probeProxy() {
   try {
-    const base = typeof __DEV__ !== 'undefined' && __DEV__ ? 'http://localhost:3001' : '';
-    await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(1500) });
+    const isDev = typeof __DEV__ !== 'undefined' && __DEV__;
+    if (!isDev) return true; // Vercel functions always available in production
+    await fetch('http://localhost:3001/api/health', { signal: AbortSignal.timeout(1500) });
     return true;
   } catch (_) {
-    // In production (Vercel), serverless functions are always available
-    return !(typeof __DEV__ !== 'undefined' && __DEV__);
+    return false;
   }
 }
 
-async function googleFetch(path, params, usingProxy) {
-  const base = usingProxy ? PROXY_URL : DIRECT_URL;
-  const keyParam = usingProxy ? '' : `&key=${API_KEY}`;
-  const url = `${base}${path}?${params}${keyParam}`;
+async function googleFetch(endpoint, params, usingProxy) {
+  let url;
+  if (usingProxy) {
+    url = buildProxyUrl(endpoint, params);
+  } else {
+    const q = new URLSearchParams({ ...params, key: API_KEY }).toString();
+    url = `https://maps.googleapis.com/maps/api/${endpoint}?${q}`;
+  }
   const res = await fetch(url);
   return res.json();
 }
@@ -155,17 +157,13 @@ export default function useNearbyStores(location, radius = 16093, categoryId = '
       let data;
 
       if (textQuery.trim()) {
-        // Free-text search — works with or without location
-        const locParam = location
-          ? `&location=${location.latitude},${location.longitude}&radius=${radius}`
-          : '';
-        const params = `query=${encodeURIComponent(textQuery)}${locParam}`;
-        data = await googleFetch('/textsearch/json', params, usingProxy);
+        const params = { query: textQuery };
+        if (location) { params.location = `${location.latitude},${location.longitude}`; params.radius = radius; }
+        data = await googleFetch('place/textsearch/json', params, usingProxy);
       } else if (location) {
-        // Browse by category near GPS location
         const category = CATEGORIES.find((c) => c.id === categoryId) || CATEGORIES[0];
-        const params = `location=${location.latitude},${location.longitude}&radius=${radius}&type=${category.googleType}`;
-        data = await googleFetch('/nearbysearch/json', params, usingProxy);
+        const params = { location: `${location.latitude},${location.longitude}`, radius, type: category.googleType };
+        data = await googleFetch('place/nearbysearch/json', params, usingProxy);
       } else {
         setLoading(false);
         return;
@@ -206,9 +204,10 @@ export default function useNearbyStores(location, radius = 16093, categoryId = '
 async function fetchDetails(place, usingProxy = true) {
   try {
     const fields = 'name,formatted_address,formatted_phone_number,opening_hours,website,rating,geometry,types,photos';
-    const baseUrl = usingProxy ? PROXY_URL : DIRECT_URL;
-    const keyParam = usingProxy ? '' : `&key=${API_KEY}`;
-    const url = `${baseUrl}/details/json?place_id=${place.place_id}&fields=${fields}${keyParam}`;
+    const params = { place_id: place.place_id, fields };
+    const url = usingProxy
+      ? buildProxyUrl('place/details/json', params)
+      : `https://maps.googleapis.com/maps/api/place/details/json?${new URLSearchParams({ ...params, key: API_KEY })}`;
     const res = await fetch(url);
     const data = await res.json();
 

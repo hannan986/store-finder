@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import COLORS from '../constants/colors';
 
-import { PROXY_AUTOCOMPLETE as AUTOCOMPLETE_URL } from '../constants/api';
+import { buildProxyUrl } from '../constants/api';
 
 const QUICK_SUGGESTIONS = [
   { label: 'Restaurants', icon: '🍔', query: 'restaurants' },
@@ -28,8 +28,9 @@ export default function GoogleSearchBar({ location, onSearch, onClear, activeQue
     if (input.length < 2) { setSuggestions([]); return; }
     setLoading(true);
     try {
-      const locParam = location ? `&location=${location.latitude},${location.longitude}&radius=50000` : '';
-      const url = `${AUTOCOMPLETE_URL}?input=${encodeURIComponent(input)}&types=establishment${locParam}`;
+      const params = { input, types: 'establishment' };
+      if (location) { params.location = `${location.latitude},${location.longitude}`; params.radius = 50000; }
+      const url = buildProxyUrl('place/autocomplete/json', params);
       const res = await fetch(url);
       const data = await res.json();
       setSuggestions(data.status === 'OK' ? (data.predictions ?? []).slice(0, 6) : []);

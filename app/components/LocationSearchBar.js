@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import COLORS from '../constants/colors';
 
-import { PROXY_AUTOCOMPLETE as AUTOCOMPLETE_URL } from '../constants/api';
+import { buildProxyUrl } from '../constants/api';
 
 export default function LocationSearchBar({ onSelectPlace, cityName, isCustomLocation, onResetLocation }) {
   const [query, setQuery] = useState('');
@@ -24,7 +24,7 @@ export default function LocationSearchBar({ onSelectPlace, cityName, isCustomLoc
     if (text.length < 2) { setSuggestions([]); return; }
     setLoading(true);
     try {
-      const url = `${AUTOCOMPLETE_URL}?input=${encodeURIComponent(text)}&types=(cities)`;
+      const url = buildProxyUrl('place/autocomplete/json', { input: text, types: '(cities)' });
       const res = await fetch(url);
       const data = await res.json();
       if (data.status === 'OK') {
